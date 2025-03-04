@@ -241,7 +241,7 @@ async def select_topic(update: types.CallbackQuery, state: FSMContext) -> None:
     if "image" in question and question["image"]:
         await update.message.delete()
         await update.message.answer_photo(
-            question["image"],
+            photo=question["image"],
             caption=question["text"],
             reply_markup=keyboard.adjust(1).as_markup()
         )
@@ -299,7 +299,7 @@ async def answer_question(update: types.CallbackQuery, state: FSMContext, sessio
         if "image" in question and question["image"]:
             await update.message.delete()
             await update.message.answer_photo(
-                question["image"],
+                photo=question["image"],
                 caption=question["text"],
                 reply_markup=keyboard.adjust(1).as_markup()
             )
