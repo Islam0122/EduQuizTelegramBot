@@ -163,44 +163,61 @@ async def my_stats_callback(query: types.CallbackQuery, session: Session) -> Non
     user_id = query.from_user.id
 
     async with session.begin():
-        result = await session.execute(
+        # Получаем последний тест
+        last_result = await session.execute(
             select(
                 QuizResult.score,
                 QuizResult.total_questions,
-                QuizResult.created_at,
-                func.sum(QuizResult.score).filter(QuizResult.user_id == user_id).label("total_score"),
-                func.count(QuizResult.id).filter(QuizResult.user_id == user_id).label("total_tests"),
-                func.max(QuizResult.score).filter(QuizResult.user_id == user_id).label("best_score"),
-                func.max(QuizResult.total_questions).filter(QuizResult.user_id == user_id).label("best_total_questions")
+                QuizResult.created_at
             ).where(QuizResult.user_id == user_id)
             .order_by(QuizResult.created_at.desc())
             .limit(1)
         )
-        row = result.first()
+        last_result = last_result.first()
 
-    if row and all(row):
-        score, total_questions, created_at, total_score, total_tests, best_score, best_total_questions = row
-
-        caption_text = (
-            "📊 <b>Ваша статистика:</b>\n\n"
-            f"✅ Правильных ответов в последнем тесте: {score}/{total_questions}\n"
-            f"🔢 Ваш общий балл за все тесты: {total_score or 0} 🔥\n"
-            f"📈 Средний результат: {round(total_score / total_tests, 2) if total_tests else 0}\n"
-            f"🏆 Лучший результат: {best_score}/{best_total_questions}\n"
-            f"📝 Количество пройденных тестов: {total_tests}\n"
-            f"⏰ Последний тест был пройден: {created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+        # Получаем общую статистику
+        stats = await session.execute(
+            select(
+                func.sum(QuizResult.score).label("total_score"),
+                func.count(QuizResult.id).label("total_tests"),
+                func.max(QuizResult.score).label("best_score"),
+                func.max(QuizResult.total_questions).label("best_total_questions")
+            ).where(QuizResult.user_id == user_id)
         )
+        stats = stats.first()
 
-        await query.message.edit_caption(
-            caption=caption_text,
-            reply_markup=return_menu_functions_keyboard(),
-            parse_mode=ParseMode.HTML
-        )
-    else:
+    # Если у пользователя нет тестов
+    if not last_result:
         await query.message.edit_caption(
             caption="🚫 У вас нет результатов тестов.",
             reply_markup=return_menu_functions_keyboard(),
         )
+        return
+
+    # Разбираем данные
+    score, total_questions, created_at = last_result
+    total_score = stats.total_score or 0
+    total_tests = stats.total_tests or 0
+    best_score = stats.best_score or 0
+    best_total_questions = stats.best_total_questions or 0
+    average_score = round(total_score / total_tests, 2) if total_tests else 0
+
+    # Формируем текст
+    caption_text = (
+        "📊 <b>Ваша статистика:</b>\n\n"
+        f"✅ Правильных ответов в последнем тесте: {score}/{total_questions}\n"
+        f"🔢 Ваш общий балл за все тесты: {total_score} 🔥\n"
+        f"📈 Средний результат: {average_score}\n"
+        f"🏆 Лучший результат: {best_score}/{best_total_questions}\n"
+        f"📝 Количество пройденных тестов: {total_tests}\n"
+        f"⏰ Последний тест был пройден: {created_at.strftime('%Y-%m-%d %H:%M:%S')}\n"
+    )
+
+    await query.message.edit_caption(
+        caption=caption_text,
+        reply_markup=return_menu_functions_keyboard(),
+        parse_mode=ParseMode.HTML
+    )
 
 
 class QuizState(StatesGroup):
