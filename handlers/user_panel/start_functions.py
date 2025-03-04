@@ -234,8 +234,10 @@ async def select_topic(update: types.CallbackQuery, state: FSMContext) -> None:
     ]
 
     keyboard = InlineKeyboardBuilder()
-    for option in options:
-        keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question['id']}_{option}"))
+    option_labels = ["A", "B", "C", "D"]
+    for label, option in zip(option_labels, options):
+        keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question['id']}_{label}"))
+
     keyboard.button(text="⬅️ Назад", callback_data="start")
 
     if "image" in question and question["image"]:
@@ -310,13 +312,18 @@ async def answer_question(update: types.CallbackQuery, state: FSMContext, sessio
                 caption=question["text"],
                 reply_markup=keyboard.adjust(1).as_markup()
             )
-        await state.update_data(current_question=next_question_idx)
+        await state.update_data(current_question=next_question_idx, correct_answers=correct_answers)
     else:
-        # Сохраняем результаты викторины в базе данных
-        correct_answers = state_data["correct_answers"]
+        # Получаем актуальное состояние
+        state_data = await state.get_data()
+        correct_answers = state_data.get("correct_answers", 0)  # Убеждаемся, что у нас актуальные данные
+
+        # Сохраняем обновленное количество правильных ответов
+        await state.update_data(correct_answers=correct_answers)
+
         total_questions = len(questions)
 
-        # Сохраняем результат
+        # Сохраняем результат в базе данных
         result = await save_quiz_result(update.from_user.id, correct_answers, total_questions, session)
 
         # Отправляем сообщение с результатом
