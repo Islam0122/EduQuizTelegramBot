@@ -269,7 +269,7 @@ async def answer_question(update: types.CallbackQuery, state: FSMContext, sessio
     question = next(q for q in questions if q["id"] == question_id)
     correct_answer = question["correct_answer"]
 
-    if selected_option == correct_answer:
+    if selected_option.upper() == correct_answer:
         correct = True
         correct_answers += 1
     else:
