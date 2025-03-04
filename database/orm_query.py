@@ -112,12 +112,8 @@ async def save_quiz_result(user_id: int, correct_answers: int, total_questions: 
         score=correct_answers,
         total_questions=total_questions,
     )
-
     session.add(result)
     await session.commit()
-
-    print(f"Результат викторины для пользователя {user_id} успешно сохранен!")
-
     return result
 
 

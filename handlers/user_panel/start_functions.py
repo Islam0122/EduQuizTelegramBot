@@ -25,6 +25,7 @@ welcome_text = (
     "🔹 Учиться в удобное время и в игровом формате\n\n"
     "🚀 Готовы прокачать свой интеллект? Давайте начнем!"
 )
+photo=types.FSInputFile('media/img.png')
 
 @start_functions_private_router.message(CommandStart())
 async def start_cmd(message: types.Message,session: AsyncSession):
@@ -215,6 +216,7 @@ async def start_quiz_callback(query: types.CallbackQuery) -> None:
     keyboard.button(text="⬅️ Назад", callback_data="start")
     await query.message.edit_caption(caption="Выберите тему:", reply_markup=keyboard.adjust(1).as_markup())
 
+
 @start_functions_private_router.callback_query(F.data.startswith("select_topic_"))
 async def select_topic(update: types.CallbackQuery, state: FSMContext) -> None:
     topic_id = int(update.data.split("_")[2])
@@ -222,6 +224,7 @@ async def select_topic(update: types.CallbackQuery, state: FSMContext) -> None:
     topic = next(topic for topic in topics if topic['id'] == topic_id)
     random_questions = random.sample(topic["questions"], 5)
     await state.set_data({"questions": random_questions, "current_question": 0, "correct_answers": 0})
+
     question = random_questions[0]
     options = [
         question["option_a"],
@@ -229,11 +232,26 @@ async def select_topic(update: types.CallbackQuery, state: FSMContext) -> None:
         question["option_c"],
         question["option_d"]
     ]
+
     keyboard = InlineKeyboardBuilder()
     for option in options:
         keyboard.add(InlineKeyboardButton(text=option, callback_data=f"answer_{question['id']}_{option}"))
     keyboard.button(text="⬅️ Назад", callback_data="start")
-    await update.message.edit_caption(caption=question["text"], reply_markup=keyboard.adjust(1).as_markup())
+
+    if "image" in question and question["image"]:
+        await update.message.delete()
+        await update.message.answer_photo(
+            question["image"],
+            caption=question["text"],
+            reply_markup=keyboard.adjust(1).as_markup()
+        )
+    else:
+        await update.message.delete()
+        await update.message.answer_photo(
+            photo=photo,
+            caption=question["text"],
+            reply_markup=keyboard.adjust(1).as_markup()
+        )
 
 
 @start_functions_private_router.callback_query(F.data.startswith("answer_"))
@@ -278,7 +296,20 @@ async def answer_question(update: types.CallbackQuery, state: FSMContext, sessio
             keyboard.add(InlineKeyboardButton(text=text, callback_data=f"answer_{question['id']}_{option}"))
         keyboard.add(InlineKeyboardButton(text="⬅️ Назад", callback_data="start"))
 
-        await update.message.edit_caption(caption=question["text"], reply_markup=keyboard.adjust(1).as_markup())
+        if "image" in question and question["image"]:
+            await update.message.delete()
+            await update.message.answer_photo(
+                question["image"],
+                caption=question["text"],
+                reply_markup=keyboard.adjust(1).as_markup()
+            )
+        else:
+            await update.message.delete()
+            await update.message.answer_photo(
+                photo=photo,
+                caption=question["text"],
+                reply_markup=keyboard.adjust(1).as_markup()
+            )
         await state.update_data(current_question=next_question_idx)
     else:
         # Сохраняем результаты викторины в базе данных
